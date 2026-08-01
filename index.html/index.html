@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三角洲密码门</title>
+<style>
+  body { margin:0; padding:14px; font-family: sans-serif; background:#1A1A2E; color:#fff; }
+  h1 { font-size:15px; margin:0 0 8px 0; }
+  .row { padding:5px 0; border-bottom:1px solid #333; font-size:13px; }
+  .name { color:#ddd; }
+  .code { color:#4ade80; font-weight:bold; }
+  .foot { margin-top:8px; font-size:10px; color:#888; }
+</style>
+</head>
+<body>
+  <h1>🔒 三角洲密码门</h1>
+  <div id="list">加载中...</div>
+  <div class="foot" id="foot"></div>
+  <script>
+    fetch("./passwords.json").then(r => r.json()).then(data => {
+      document.getElementById("list").innerHTML =
+        data.maps.map(m =>
+          `<div class="row"><span class="name">${m.name}</span>　<span class="code">${m.doors.join(" / ")}</span></div>`
+        ).join("");
+      document.getElementById("foot").textContent = "更新于 " + (data.updated_at || "");
+    }).catch(e => {
+      document.getElementById("list").textContent = "加载失败：" + e.message;
+    });
+  </script>
+</body>
+</html>
