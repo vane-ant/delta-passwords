@@ -8,7 +8,7 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        page.goto(URL, wait_until="networkidle", timeout=60000)
+        page.goto(URL, wait_until="networkidle", timeout=50000)
         page.wait_for_timeout(3000)
         text = page.inner_text("body")
         browser.close()
