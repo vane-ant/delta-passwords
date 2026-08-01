@@ -1,19 +1,64 @@
 name: update-daily-passwords
 on:
   schedule:
-    - cron: "15 16 * * *"   # 北京时间每天 00:15
-    - cron: "0 0 * * *"     # 北京时间每天 08:00 兜底
+    - cron: "15 16 * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install playwright
       - run: python -m playwright install --with-deps chromium
-      - run: python scrape.py
+      - name: Generate and run scrape.py
+        run: |
+          cat > scrape.py << 'EOF'
+          # -*- coding: utf-8 -*-
+          import json, re, datetime
+          from playwright.sync_api import sync_playwright
+
+          URL = "https://www.kkrb.net/?viewpage=view/map/bonus_door"
+
+          def main():
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                  page.goto(URL, wait_until="networkidle", timeout=60000)
+                  page.wait_for_timeout(3000)
+                  text = page.inner_text("body")
+                  browser.close()
+
+              pattern = re.compile(
+                  r'([\w\u4e00-\u9fa5]+?)-彩蛋密码门.*?密码：([0-9A-Za-z]+)', re.S)
+              maps, seen = [], set()
+              for name, code in pattern.findall(text):
+                  name = name.strip()
+                  if name in seen:
+                      continue
+                  seen.add(name)
+                  maps.append({"name": name, "doors": [code.strip()]})
+
+              if len(maps) < 5:
+                  raise RuntimeError(f"解析结果异常，只有 {len(maps)} 张图")
+
+              data = {
+                  "date": datetime.date.today().isoformat(),
+                  "updated_at": datetime.datetime.now().astimezone().isoformat(),
+                  "maps": maps,
+              }
+              with open("passwords.json", "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+              print(json.dumps(data, ensure_ascii=False, indent=2))
+
+          if __name__ == "__main__":
+              main()
+          EOF
+          python scrape.py
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "update daily passwords"
