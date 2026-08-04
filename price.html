@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三角洲交易行价格查询</title>
+<style>
+  body { margin:0; padding:16px; font-family: sans-serif; background:#1A1A2E; color:#fff; }
+  h1 { font-size:18px; margin:0 0 12px 0; }
+  input { width:100%; padding:10px; font-size:15px; border:none; border-radius:8px; box-sizing:border-box; }
+  .sug { margin-top:6px; }
+  .sug div { padding:8px; background:#252547; border-radius:6px; margin-top:4px; cursor:pointer; font-size:13px; }
+  .sug div:hover { background:#33335f; }
+  .card { margin-top:14px; background:#252547; border-radius:12px; padding:14px; }
+  .row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #333; font-size:14px; }
+  .low { color:#4ade80; font-weight:bold; }
+  .muted { color:#888; font-size:11px; margin-top:10px; }
+  a { color:#60a5fa; }
+</style>
+</head>
+<body>
+  <h1>🛒 交易行价格查询</h1>
+  <input id="q" placeholder="输入物品名，如：感知强化剂" autocomplete="off">
+  <div class="sug" id="sug"></div>
+  <div id="result"></div>
+  <div class="muted" id="foot">数据来自 <a href="https://orzice.com">三角洲小涛查 orzice.com</a> · 价格实时波动，仅供参考</div>
+
+<script>
+let ITEMS = {};
+fetch("items.json").then(r=>r.json()).then(d=>{ ITEMS = d; }).catch(e=>{
+  document.getElementById("foot").textContent = "物品索引加载失败：" + e.message;
+});
+
+const q = document.getElementById("q");
+const sug = document.getElementById("sug");
+const result = document.getElementById("result");
+
+function showSuggestions() {
+  const kw = q.value.trim();
+  sug.innerHTML = "";
+  if (!kw) return;
+  const names = Object.keys(ITEMS).filter(n => n.includes(kw)).slice(0, 8);
+  names.forEach(n => {
+    const d = document.createElement("div");
+    d.textContent = n;
+    d.onclick = () => { q.value = n; sug.innerHTML = ""; search(n); };
+    sug.appendChild(d);
+  });
+}
+q.addEventListener("input", showSuggestions);
+q.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    const kw = q.value.trim();
+    sug.innerHTML = "";
+    const exact = Object.keys(ITEMS).find(n => n === kw);
+    if (exact) { search(exact); return; }
+    const first = Object.keys(ITEMS).find(n => n.includes(kw));
+    if (first) search(first); else result.innerHTML = "未找到该物品，换个名字试试";
+  }
+});
+
+async function search(name) {
+  const id = ITEMS[name];
+  result.innerHTML = "查询中...";
+  try {
+    const url = "https://orzice.com/v/info/" + id;
+    const proxied = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+    const html = await (await fetch(proxied)).text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const text = doc.body.innerText;
+
+    const g = (re) => { const m = text.match(re); return m ? m[1].trim() : null; };
+    const current = g(/当前价格\s*([\d,]+)/);
+    const low     = g(/今日最低价\s*([\d,]+)/);
+    const high    = g(/今日最高价\s*([\d,]+)/);
+    const latest  = g(/最新成交价[：:]\s*([\d,]+)/);
+
+    if (!current && !low) {
+      result.innerHTML = `<div class="card">「${name}」暂无可交易价格（可能禁止交易）<br>
+        <a href="${url}" target="_blank">在小涛查查看详情 →</a></div>`;
+      return;
+    }
+    result.innerHTML = `
+      <div class="card">
+        <div class="row"><span>📦 ${name}</span></div>
+        <div class="row"><span>💵 当前价格</span><span>${current || "—"}</span></div>
+        <div class="row"><span>📉 今日最低价</span><span class="low">${low || "—"}</span></div>
+        <div class="row"><span>📈 今日最高价</span><span>${high || "—"}</span></div>
+        <div class="row"><span>🕐 最新成交价</span><span>${latest || "—"}</span></div>
+        <div class="muted"><a href="${url}" target="_blank">在小涛查打开详情页 →</a></div>
+      </div>`;
+  } catch (e) {
+    result.innerHTML = `<div class="card">查询失败：${e.message}<br>
+      <a href="https://orzice.com/v/info/${id}" target="_blank">去小涛查直接查看 →</a></div>`;
+  }
+}
+</script>
+</body>
+</html>
