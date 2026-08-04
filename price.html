@@ -59,16 +59,28 @@ q.addEventListener("keydown", e => {
   }
 });
 
+async function fetchText(url) {
+  const tries = [
+    url,
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://r.jina.ai/" + url
+  ];
+  for (const u of tries) {
+    try {
+      const r = await fetch(u);
+      if (r.ok) return await r.text();
+    } catch (e) { /* try next */ }
+  }
+  throw new Error("所有数据通道都失败了");
+}
+
 async function search(name) {
   const id = ITEMS[name];
+  const url = "https://orzice.com/v/info/" + id;
   result.innerHTML = "查询中...";
   try {
-    const url = "https://orzice.com/v/info/" + id;
-    const proxied = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-    const html = await (await fetch(proxied)).text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const text = doc.body.innerText;
-
+    const raw = await fetchText(url);
+    const text = new DOMParser().parseFromString(raw, "text/html").body.innerText;
     const g = (re) => { const m = text.match(re); return m ? m[1].trim() : null; };
     const current = g(/当前价格\s*([\d,]+)/);
     const low     = g(/今日最低价\s*([\d,]+)/);
@@ -91,7 +103,7 @@ async function search(name) {
       </div>`;
   } catch (e) {
     result.innerHTML = `<div class="card">查询失败：${e.message}<br>
-      <a href="https://orzice.com/v/info/${id}" target="_blank">去小涛查直接查看 →</a></div>`;
+      <a href="${url}" target="_blank">去小涛查直接查看 →</a></div>`;
   }
 }
 </script>
