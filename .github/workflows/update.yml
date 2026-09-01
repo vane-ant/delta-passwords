@@ -1,8 +1,8 @@
 name: update-daily-passwords
 on:
   schedule:
-    - cron: '30 16 * * *'
-    - cron: '15 1 * * *'
+    - cron: '0 * * * *'    # 每小时(UTC)=北京每小时, 尽快拿到当天数据
+    - cron: '15 1 * * *'   # 保留北京9:15(数据源更新后再抓一次)
   workflow_dispatch:
 jobs:
   scrape:
